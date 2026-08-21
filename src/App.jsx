@@ -95,9 +95,10 @@ export default function App() {
   function saveProfile(next) { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); setProfile(next); setView('game') }
   function choosePlan(next) { localStorage.setItem(SUB_KEY, next); setPlan(next) }
   function reset() { localStorage.removeItem(STORAGE_KEY); setProfile(null); setView('welcome') }
-  async function start() { if (!profile) { setView('profile'); return } const next = await refreshLifeExpectancy(profile); localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); setProfile(next); setView('game') }
-  if (view === 'profile') return <ProfileForm initialProfile={profile} plan={plan} onSave={saveProfile} onCancel={profile ? () => setView('game') : null} />
-  if (view === 'plans') return <SubscriptionShop plan={plan} onChoose={choosePlan} onBack={() => setView(profile ? 'game' : 'welcome')} />
-  if (view === 'game' && profile) return <Game profile={profile} plan={plan} onEdit={() => setView('profile')} onPlans={() => setView('plans')} onReset={reset} />
+  async function start() { if (!profile || !fixedFieldsComplete(profile)) { setView('profile'); return } const next = await refreshLifeExpectancy(profile); localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); setProfile(next); setView('game') }
+  const canReturnToGame = fixedFieldsComplete(profile)
+  if (view === 'profile') return <ProfileForm initialProfile={profile} plan={plan} onSave={saveProfile} onCancel={canReturnToGame ? () => setView('game') : null} />
+  if (view === 'plans') return <SubscriptionShop plan={plan} onChoose={choosePlan} onBack={() => setView(profile && fixedFieldsComplete(profile) ? 'game' : 'welcome')} />
+  if (view === 'game' && profile && fixedFieldsComplete(profile)) return <Game profile={profile} plan={plan} onEdit={() => setView('profile')} onPlans={() => setView('plans')} onReset={reset} />
   return <Welcome onStart={start} />
 }

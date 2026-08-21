@@ -4,12 +4,14 @@ import {
   faChessRook, faCompass, faEye, faFeatherPointed, faCrown, faLightbulb,
   faWandMagicSparkles, faShieldHalved, faScrewdriverWrench, faHeart,
   faPalette, faGavel, faHammer, faPeopleGroup, faMusic, faUtensils,
-  faLock, faCircleNodes, faRankingStar, faSeedling, faXmark
+  faLock, faCircleNodes, faRankingStar, faSeedling, faXmark, faFire
 } from '@fortawesome/free-solid-svg-icons'
 import './npc.css'
+import './calories.css'
 
 const STORAGE_KEY = 'patouGameProfile'
 const SUB_KEY = 'patouGameSubscription'
+const CALORIE_KEY = 'patouCalorieSettings'
 const WB = 'https://api.worldbank.org/v2'
 const BASE = import.meta.env.BASE_URL
 
@@ -50,6 +52,7 @@ const NPCS = {
 
 function getStoredProfile(){ try{return JSON.parse(localStorage.getItem(STORAGE_KEY))}catch{return null} }
 function getStoredPlan(){ return localStorage.getItem(SUB_KEY)||'Gratuit' }
+function getCalorieSettings(){ try{return JSON.parse(localStorage.getItem(CALORIE_KEY))||{}}catch{return {}} }
 function premiumEdit(plan){ return PLAN_ORDER.indexOf(plan)>=2 }
 function fixedFieldsComplete(profile){ return Boolean(profile?.birthDate&&profile?.sex&&profile?.countryCode) }
 function classInfo(type){ return MBTI_CLASSES.find(item=>item.type===type) }
@@ -171,6 +174,33 @@ function QuestJournal({playerClass,multiplier}){
   </div>
 }
 
+function CaloriePanel({profile}){
+  const saved=getCalorieSettings()
+  const [weight,setWeight]=useState(saved.weight||'')
+  const [height,setHeight]=useState(saved.height||'')
+  const [activity,setActivity]=useState(Number(saved.activity||1.45))
+  const age=visibleAge(profile.birthDate)
+  useEffect(()=>{localStorage.setItem(CALORIE_KEY,JSON.stringify({weight,height,activity}))},[weight,height,activity])
+  const w=Number(weight),h=Number(height)
+  const valid=w>0&&h>0
+  const bmr=valid?Math.max(0,10*w+6.25*h-5*age+(profile.sex==='male'?5:-161)):0
+  const daily=bmr*activity
+  const activityLabel=activity<1.3?'Sédentaire':activity<1.45?'Légèrement actif':activity<1.6?'Modérément actif':activity<1.75?'Actif':'Très actif'
+  return <div className="calorie-panel">
+    <div className="calorie-intro"><span className="calorie-icon"><FontAwesomeIcon icon={faFire}/></span><div><strong>Énergie quotidienne estimée</strong><p>Le calcul utilise ton âge ({age} ans) et ton sexe déjà enregistrés dans le profil, puis ta taille, ton poids et ton niveau d’activité.</p></div></div>
+    <div className="calorie-form-grid">
+      <label><span>Poids</span><div className="unit-input"><input type="number" min="25" max="350" step="0.1" inputMode="decimal" value={weight} onChange={e=>setWeight(e.target.value)} placeholder="70"/><em>kg</em></div></label>
+      <label><span>Taille</span><div className="unit-input"><input type="number" min="100" max="250" step="1" inputMode="numeric" value={height} onChange={e=>setHeight(e.target.value)} placeholder="175"/><em>cm</em></div></label>
+    </div>
+    <div className="activity-control"><div className="activity-head"><span>Niveau d’activité</span><strong>{activityLabel} · × {activity.toFixed(2)}</strong></div><input type="range" min="1.2" max="1.9" step="0.05" value={activity} onChange={e=>setActivity(Number(e.target.value))}/><div className="activity-scale"><span>Repos / bureau</span><span>Très actif</span></div></div>
+    <div className="calorie-results">
+      <article><small>MÉTABOLISME DE BASE</small><strong>{valid?Math.round(bmr).toLocaleString('fr-FR'):'—'} <span>kcal/j</span></strong><p>Estimation de l’énergie utilisée au repos.</p></article>
+      <article className="daily-energy"><small>BESOIN QUOTIDIEN ESTIMÉ</small><strong>{valid?Math.round(daily).toLocaleString('fr-FR'):'—'} <span>kcal/j</span></strong><p>Métabolisme de base × niveau d’activité.</p></article>
+    </div>
+    <div className="calorie-method"><b>Méthode :</b> formule de Mifflin–St Jeor pour le métabolisme de base, puis facteur d’activité. C’est une estimation générale, pas une prescription médicale ou nutritionnelle.</div>
+  </div>
+}
+
 function Game({profile,plan,onEdit,onPlans,onReset}){
   const [menuOpen,setMenuOpen]=useState(false)
   const [panel,setPanel]=useState(null)
@@ -186,6 +216,7 @@ function Game({profile,plan,onEdit,onPlans,onReset}){
     [faSeedling,'Jardinier','4','gardener'],
     [faScrewdriverWrench,'Réparateur','5','repair'],
     [faHeart,'Fleuriste','6','florist'],
+    [faFire,'Calories','K','calories'],
     [faCompass,'Quêtes','J','quests'],
     [faRankingStar,'Joueur contre Joueur','P','pvp'],
     [faShieldHalved,'Personnage','C','character'],
@@ -206,6 +237,7 @@ function Game({profile,plan,onEdit,onPlans,onReset}){
     <div className="hud"><nav className="actionbar npc-actionbar">{actions.map(([icon,label,key,action])=><button key={label} title={label} onClick={e=>{e.stopPropagation();openAction(action)}}><FontAwesomeIcon icon={icon}/><small>{key}</small><span className="action-label">{label}</span></button>)}</nav><aside className="resources"><span>Ressources</span><div><article><b>🪙 {coins}</b><small>Patou coin</small></article>{[['84','Énergie'],['3','Talents'],['12','Points']].map(([value,label])=><article key={label}><b>{value}</b><small>{label}</small></article>)}</div></aside></div>
     {panel==='pvp'&&<CenterPanel title="Joueur contre Joueur" icon={faRankingStar} onClose={()=>setPanel(null)}><ChallengerBoard/></CenterPanel>}
     {['chef','gardener','repair','florist'].includes(panel)&&<CenterPanel title={NPCS[panel].name} icon={NPCS[panel].icon} onClose={()=>setPanel(null)}><NpcPanel npcKey={panel} coins={coins} bouquets={bouquets} onBuyBouquet={buyBouquet}/></CenterPanel>}
+    {panel==='calories'&&<CenterPanel title="Calories" icon={faFire} onClose={()=>setPanel(null)}><CaloriePanel profile={profile}/></CenterPanel>}
     {panel==='quests'&&<CenterPanel title="Journal des quêtes" icon={faCompass} onClose={()=>setPanel(null)}><QuestJournal playerClass={playerClass} multiplier={multiplier}/></CenterPanel>}
     {panel==='character'&&<CenterPanel title="Personnage" icon={faShieldHalved} onClose={()=>setPanel(null)}><p className="panel-placeholder">Niveau {level} · Rang {plan} · {playerClass?`${playerClass.type} ${playerClass.name}`:'Sans classe'}.</p></CenterPanel>}
     {panel==='social'&&<CenterPanel title="Social" icon={faPeopleGroup} onClose={()=>setPanel(null)}><p className="panel-placeholder">Le réseau social du jeu sera relié ici.</p></CenterPanel>}

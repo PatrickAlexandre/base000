@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faChessRook, faCompass, faEye, faFeatherPointed, faCrown, faLightbulb,
-  faWandMagicSparkles, faMasksTheater, faShieldHalved, faScrewdriverWrench,
-  faHeart, faPalette, faGavel, faHammer, faPeopleGroup, faMusic, faUtensils,
-  faLock, faCircleNodes, faRankingStar
+  faWandMagicSparkles, faShieldHalved, faScrewdriverWrench, faHeart,
+  faPalette, faGavel, faHammer, faPeopleGroup, faMusic, faUtensils,
+  faLock, faCircleNodes, faRankingStar, faSeedling, faXmark
 } from '@fortawesome/free-solid-svg-icons'
+import './npc.css'
 
 const STORAGE_KEY = 'patouGameProfile'
 const SUB_KEY = 'patouGameSubscription'
@@ -40,6 +41,13 @@ const MBTI_CLASSES = [
   { type:'ESFP', name:'Barde', color:'#f43f5e', icon:faMusic, mission:'Faire vivre l’aventure et convertir les moments en récits.' }
 ]
 
+const NPCS = {
+  chef: { name:'Marcel le Chef Cuisinier', role:'Cuisine & buffs', icon:faUtensils, description:'Marcel prépare des repas, rations et futurs bonus temporaires avant une quête.' },
+  gardener: { name:'Jean-Michel le Jardinier', role:'Espaces verts', icon:faSeedling, description:'Jean-Michel intervient dans tes parties extérieures pour l’aménagement, la plantation et l’entretien des espaces verts.' },
+  repair: { name:'Kevin le Réparateur', role:'Smartphones & ordinateurs', icon:faScrewdriverWrench, description:'Kevin diagnostique et répare les appareils du joueur : smartphone, ordinateur et autres équipements numériques.' },
+  florist: { name:'Fleurine la Fleuriste', role:'Bouquets & compositions', icon:faHeart, description:'Fleurine fabrique des bouquets. Ici, pas de carte bancaire : les bouquets s’achètent uniquement en Patou coin.' }
+}
+
 function getStoredProfile(){ try{return JSON.parse(localStorage.getItem(STORAGE_KEY))}catch{return null} }
 function getStoredPlan(){ return localStorage.getItem(SUB_KEY)||'Gratuit' }
 function premiumEdit(plan){ return PLAN_ORDER.indexOf(plan)>=2 }
@@ -47,6 +55,7 @@ function fixedFieldsComplete(profile){ return Boolean(profile?.birthDate&&profil
 function classInfo(type){ return MBTI_CLASSES.find(item=>item.type===type) }
 function ageYears(date){ return Math.max(0,(Date.now()-new Date(`${date}T00:00:00`).getTime())/(365.2425*86400000)) }
 function visibleAge(date){ return Math.floor(ageYears(date)) }
+function questAgeMultiplier(date){ return Math.min(1.5,1+(visibleAge(date)*0.005)) }
 function indicatorFor(sex){ return sex==='female'?'SP.DYN.LE00.FE.IN':'SP.DYN.LE00.MA.IN' }
 function vitalityPercent(profile){ const life=Number(profile?.lifeExpectancy?.value||80); return Math.max(0,Math.min(100,((life-ageYears(profile.birthDate))/life)*100)) }
 function avatarFor(profile){ if(profile?.photo)return profile.photo; const seed=encodeURIComponent(`${profile?.firstName||''} ${profile?.lastName||''}`); return `https://api.dicebear.com/9.x/initials/svg?seed=${seed}` }
@@ -133,19 +142,54 @@ function ChallengerBoard(){
 
 function Progress({label,value,percent,kind}){return <div className="progress"><div><span>{label}</span><span>{value}</span></div><div className="track"><i className={kind} style={{width:`${percent}%`}}/></div></div>}
 
+function CenterPanel({title,icon,onClose,children}){
+  return <div className="center-panel-backdrop" onClick={onClose}><section className="center-panel glass" onClick={e=>e.stopPropagation()}><header><div><span className="signal"><FontAwesomeIcon icon={icon}/> PANNEAU // INTERACTION</span><h2>{title}</h2></div><button className="panel-close" onClick={onClose} aria-label="Fermer"><FontAwesomeIcon icon={faXmark}/></button></header>{children}</section></div>
+}
+
+function NpcPanel({npcKey,coins,bouquets,onBuyBouquet}){
+  const npc=NPCS[npcKey]
+  if(!npc)return null
+  return <div className="npc-panel"><div className="npc-portrait"><FontAwesomeIcon icon={npc.icon}/></div><div className="npc-copy"><span className="npc-role">{npc.role}</span><h3>{npc.name}</h3><p>{npc.description}</p>{npcKey==='florist'&&<div className="bouquet-shop"><div><strong>Bouquet du jour</strong><span>25 Patou coin · Possédés : {bouquets}</span></div><button className="primary" disabled={coins<25} onClick={onBuyBouquet}>{coins>=25?'Acheter':'Patou coin insuffisants'}</button></div>}</div></div>
+}
+
 function Game({profile,plan,onEdit,onPlans,onReset}){
   const [menuOpen,setMenuOpen]=useState(false)
+  const [panel,setPanel]=useState(null)
+  const [coins,setCoins]=useState(profile.patouCoins??250)
+  const [bouquets,setBouquets]=useState(profile.bouquets??0)
   const vitality=useMemo(()=>vitalityPercent(profile),[profile])
   const life=profile.lifeExpectancy
   const playerClass=classInfo(profile.mbtiClass)
+  const multiplier=questAgeMultiplier(profile.birthDate)
+  const level=profile.level??1
   const actions=[
-    [faHammer,'Action','1'],[faWandMagicSparkles,'Compétences','2'],[faUtensils,'Chef Cuisinier','3'],
-    [faCompass,'Quêtes','J'],[faEye,'Carte','M'],[faShieldHalved,'Personnage','C'],[faPeopleGroup,'Social','O']
+    [faUtensils,'Chef Cuisinier','3','chef'],
+    [faSeedling,'Jardinier','4','gardener'],
+    [faScrewdriverWrench,'Réparateur','5','repair'],
+    [faHeart,'Fleuriste','6','florist'],
+    [faCompass,'Quêtes','J','quests'],
+    [faRankingStar,'Joueur contre Joueur','P','pvp'],
+    [faShieldHalved,'Personnage','C','character'],
+    [faPeopleGroup,'Social','O','social']
   ]
-  return <main className="game-screen" onClick={()=>setMenuOpen(false)}><section className="world"><div className="world-copy"><span className="signal">SIGNAL ACTIF // {profile.mbtiClass||'SANS CLASSE'}</span><h2>Monde principal</h2><p>Tout ce qui ressemble à une simple interface peut devenir un indice. Certaines valeurs suivent silencieusement le temps réel. Certaines portes n’existent qu’après avoir remarqué qu’elles étaient là.</p>{playerClass&&<div className="mission-card" style={{'--class-color':playerClass.color}}><FontAwesomeIcon icon={playerClass.icon}/><div><small>MISSION DE CLASSE</small><strong>{playerClass.name}</strong><span>{playerClass.mission}</span></div></div>}</div><ChallengerBoard/></section>
-    <button className="profile-trigger" onClick={e=>{e.stopPropagation();setMenuOpen(v=>!v)}}><span className="avatar-wrap"><img className="avatar" src={avatarFor(profile)} alt="Profil"/><i/></span><span><b>{profile.firstName}</b><small>{playerClass?`${playerClass.type} · ${playerClass.name}`:`${plan} · Niveau 1`}</small></span><em>⌄</em></button>
-    <aside className={`profile-menu ${menuOpen?'open':''}`} onClick={e=>e.stopPropagation()}><div className="profile-head"><img className="avatar large" src={avatarFor(profile)} alt="Profil"/><div><strong>{profile.firstName} {profile.lastName}</strong><span>{visibleAge(profile.birthDate)} ans · {profile.sex==='female'?'Femme':'Homme'}</span>{playerClass&&<span className="class-line" style={{color:playerClass.color}}><FontAwesomeIcon icon={playerClass.icon}/> {playerClass.type} · {playerClass.name}</span>}</div><b className="plan-pill">{plan}</b></div><Progress label="Vitalité" value={`${Math.round(vitality)} / 100`} percent={vitality} kind="health"/><Progress label="Progression" value="42%" percent={42} kind="xp"/><div className="life-source">{life?.year?`Référence : ${Number(life.value).toFixed(1)} ans · ${life.year} · Banque mondiale`:'Référence statistique temporairement indisponible'}</div><div className="profile-actions"><button><b>Mon profil</b><small>Identité et apparence</small></button><button><b>Progression</b><small>Niveau, XP et objectifs</small></button><button><b>Inventaire</b><small>Objets et collections</small></button><button className="shop" onClick={onPlans}><b>Éditions & abonnements</b><small>Jusqu’au palier Challenger</small></button></div><div className="profile-footer"><button className="ghost" onClick={onEdit}>Modifier</button><button className="ghost" onClick={onReset}>Réinitialiser</button></div></aside>
-    <div className="hud"><nav className="actionbar">{actions.map(([icon,label,key])=><button key={label} title={label}><FontAwesomeIcon icon={icon}/><small>{key}</small><span className="action-label">{label}</span></button>)}</nav><aside className="resources"><span>Ressources</span><div>{[['1 250','Crédits'],['84','Énergie'],['3','Talents'],['12','Points']].map(([value,label])=><article key={label}><b>{value}</b><small>{label}</small></article>)}</div></aside></div>
+  function openAction(key){setMenuOpen(false);setPanel(key)}
+  function buyBouquet(){
+    if(coins<25)return
+    const nextCoins=coins-25
+    const nextBouquets=bouquets+1
+    setCoins(nextCoins);setBouquets(nextBouquets)
+    const stored={...profile,patouCoins:nextCoins,bouquets:nextBouquets}
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(stored))
+  }
+  return <main className="game-screen" onClick={()=>setMenuOpen(false)}><section className="world"><div className="world-copy"><span className="signal">SIGNAL ACTIF // {profile.mbtiClass||'SANS CLASSE'}</span><h2>Monde principal</h2><p>Tout ce qui ressemble à une simple interface peut devenir un indice. Les services, quêtes et classements sont maintenant accessibles depuis ta barre d’actions.</p>{playerClass&&<div className="mission-card" style={{'--class-color':playerClass.color}}><FontAwesomeIcon icon={playerClass.icon}/><div><small>MISSION DE CLASSE</small><strong>{playerClass.name}</strong><span>{playerClass.mission}</span></div></div>}</div></section>
+    <button className="profile-trigger player-status-bar" onClick={e=>{e.stopPropagation();setMenuOpen(v=>!v)}}><span className="avatar-wrap"><img className="avatar" src={avatarFor(profile)} alt="Profil"/><span className="level-badge">{level}</span></span><span><b>{profile.firstName}</b><small>Rang {plan} · Niveau {level}</small></span><span className="quest-multiplier" title="Bonus de récompense de quête lié à l’âge">x{multiplier.toFixed(2)} quêtes</span><em>⌄</em></button>
+    <aside className={`profile-menu ${menuOpen?'open':''}`} onClick={e=>e.stopPropagation()}><div className="profile-head"><img className="avatar large" src={avatarFor(profile)} alt="Profil"/><div><strong>{profile.firstName} {profile.lastName}</strong><span>{visibleAge(profile.birthDate)} ans · {profile.sex==='female'?'Femme':'Homme'}</span>{playerClass&&<span className="class-line" style={{color:playerClass.color}}><FontAwesomeIcon icon={playerClass.icon}/> {playerClass.type} · {playerClass.name}</span>}</div><b className="plan-pill">Niv. {level}</b></div><div className="age-bonus-line">Multiplicateur de quête : <strong>x{multiplier.toFixed(2)}</strong> · +0,5 % par année, plafonné à x1,50</div><Progress label="Vitalité" value={`${Math.round(vitality)} / 100`} percent={vitality} kind="health"/><Progress label="Progression" value="42%" percent={42} kind="xp"/><div className="life-source">{life?.year?`Référence : ${Number(life.value).toFixed(1)} ans · ${life.year} · Banque mondiale`:'Référence statistique temporairement indisponible'}</div><div className="profile-actions"><button><b>Mon profil</b><small>Identité et apparence</small></button><button><b>Progression</b><small>Niveau, XP et objectifs</small></button><button><b>Inventaire</b><small>Objets et collections</small></button><button className="shop" onClick={onPlans}><b>Éditions & abonnements</b><small>Jusqu’au palier Challenger</small></button></div><div className="profile-footer"><button className="ghost" onClick={onEdit}>Modifier</button><button className="ghost" onClick={onReset}>Réinitialiser</button></div></aside>
+    <div className="hud"><nav className="actionbar npc-actionbar">{actions.map(([icon,label,key,action])=><button key={label} title={label} onClick={e=>{e.stopPropagation();openAction(action)}}><FontAwesomeIcon icon={icon}/><small>{key}</small><span className="action-label">{label}</span></button>)}</nav><aside className="resources"><span>Ressources</span><div><article><b>{coins}</b><small>Patou coin</small></article>{[['84','Énergie'],['3','Talents'],['12','Points']].map(([value,label])=><article key={label}><b>{value}</b><small>{label}</small></article>)}</div></aside></div>
+    {panel==='pvp'&&<CenterPanel title="Joueur contre Joueur" icon={faRankingStar} onClose={()=>setPanel(null)}><ChallengerBoard/></CenterPanel>}
+    {['chef','gardener','repair','florist'].includes(panel)&&<CenterPanel title={NPCS[panel].name} icon={NPCS[panel].icon} onClose={()=>setPanel(null)}><NpcPanel npcKey={panel} coins={coins} bouquets={bouquets} onBuyBouquet={buyBouquet}/></CenterPanel>}
+    {panel==='quests'&&<CenterPanel title="Quêtes" icon={faCompass} onClose={()=>setPanel(null)}><p className="panel-placeholder">Tes futures quêtes personnalisées apparaîtront ici. Récompenses actuelles × {multiplier.toFixed(2)} grâce au multiplicateur d’âge.</p></CenterPanel>}
+    {panel==='character'&&<CenterPanel title="Personnage" icon={faShieldHalved} onClose={()=>setPanel(null)}><p className="panel-placeholder">Niveau {level} · Rang {plan} · {playerClass?`${playerClass.type} ${playerClass.name}`:'Sans classe'}.</p></CenterPanel>}
+    {panel==='social'&&<CenterPanel title="Social" icon={faPeopleGroup} onClose={()=>setPanel(null)}><p className="panel-placeholder">Le réseau social du jeu sera relié ici.</p></CenterPanel>}
   </main>
 }
 

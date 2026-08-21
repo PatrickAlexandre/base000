@@ -8,6 +8,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import './npc.css'
 import './calories.css'
+import './social.css'
 
 const STORAGE_KEY = 'patouGameProfile'
 const SUB_KEY = 'patouGameSubscription'
@@ -151,8 +152,26 @@ function CenterPanel({title,icon,onClose,children}){
 
 function NpcPanel({npcKey,coins,bouquets,onBuyBouquet}){
   const npc=NPCS[npcKey]
+  const [repairRequest,setRepairRequest]=useState('')
   if(!npc)return null
-  return <div className="npc-panel"><div className="npc-portrait"><FontAwesomeIcon icon={npc.icon}/></div><div className="npc-copy"><span className="npc-role">{npc.role}</span><h3>{npc.name}</h3><p>{npc.description}</p>{npcKey==='florist'&&<div className="bouquet-shop"><div><strong>Bouquet du jour</strong><span>🪙 25 Patou coin · Possédés : {bouquets}</span></div><button className="primary" disabled={coins<25} onClick={onBuyBouquet}>{coins>=25?'Acheter':'Patou coin insuffisants'}</button></div>}</div></div>
+  function sendRepairRequest(){
+    const details=repairRequest.trim()||'Je souhaite faire diagnostiquer un appareil.'
+    const message=`Bonjour Kevin, je viens de Patou Game. J’ai besoin d’aide pour une réparation. Ma demande : ${details}`
+    window.open(`https://wa.me/33600000000?text=${encodeURIComponent(message)}`,'_blank','noopener,noreferrer')
+  }
+  return <div className="npc-panel"><div className="npc-portrait"><FontAwesomeIcon icon={npc.icon}/></div><div className="npc-copy"><span className="npc-role">{npc.role}</span><h3>{npc.name}</h3><p>{npc.description}</p>{npcKey==='repair'&&<div className="repair-request"><label htmlFor="repairRequest">Décris rapidement la panne ou l’appareil</label><textarea id="repairRequest" rows="4" value={repairRequest} onChange={e=>setRepairRequest(e.target.value)} placeholder="Ex. écran cassé sur mon smartphone, ordinateur qui ne démarre plus…"/><button className="primary whatsapp-cta" onClick={sendRepairRequest}>Contacter Kevin sur WhatsApp</button><small>Numéro d’exemple : +33 6 00 00 00 00 · le message est prérempli avec ta demande.</small></div>}{npcKey==='florist'&&<div className="bouquet-shop"><div><strong>Bouquet du jour</strong><span>🪙 25 Patou coin · Possédés : {bouquets}</span></div><button className="primary" disabled={coins<25} onClick={onBuyBouquet}>{coins>=25?'Acheter':'Patou coin insuffisants'}</button></div>}</div></div>
+}
+
+function SocialPanel(){
+  const contacts=[
+    {name:'Marcel',role:'Chef Cuisinier',status:'Disponible'},
+    {name:'Jean-Michel',role:'Jardinier',status:'Sur le terrain'},
+    {name:'Kevin',role:'Réparateur',status:'Disponible'},
+    {name:'Fleurine',role:'Fleuriste',status:'À l’atelier'},
+    {name:'Maya',role:'Joueuse · Éclaireur',status:'En mission'},
+    {name:'Victor',role:'Joueur · Architecte',status:'Hors ligne'}
+  ]
+  return <div className="social-panel"><div className="social-summary"><strong>Contacts</strong><span>{contacts.length} entrées dans ton réseau</span></div><div className="contact-table-wrap"><table className="contact-table"><thead><tr><th>Contact</th><th>Rôle</th><th>Statut</th></tr></thead><tbody>{contacts.map(contact=><tr key={`${contact.name}-${contact.role}`}><td><span className="contact-initial">{contact.name.charAt(0)}</span><b>{contact.name}</b></td><td>{contact.role}</td><td><span className="contact-status">{contact.status}</span></td></tr>)}</tbody></table></div><small className="social-note">Liste de démonstration locale : elle pourra ensuite être alimentée par le backend social du jeu.</small></div>
 }
 
 function ClassAvatar({profile,playerClass,large=false,level}){
@@ -240,7 +259,7 @@ function Game({profile,plan,onEdit,onPlans,onReset}){
     {panel==='calories'&&<CenterPanel title="Calories" icon={faFire} onClose={()=>setPanel(null)}><CaloriePanel profile={profile}/></CenterPanel>}
     {panel==='quests'&&<CenterPanel title="Journal des quêtes" icon={faCompass} onClose={()=>setPanel(null)}><QuestJournal playerClass={playerClass} multiplier={multiplier}/></CenterPanel>}
     {panel==='character'&&<CenterPanel title="Personnage" icon={faShieldHalved} onClose={()=>setPanel(null)}><p className="panel-placeholder">Niveau {level} · Rang {plan} · {playerClass?`${playerClass.type} ${playerClass.name}`:'Sans classe'}.</p></CenterPanel>}
-    {panel==='social'&&<CenterPanel title="Social" icon={faPeopleGroup} onClose={()=>setPanel(null)}><p className="panel-placeholder">Le réseau social du jeu sera relié ici.</p></CenterPanel>}
+    {panel==='social'&&<CenterPanel title="Social" icon={faPeopleGroup} onClose={()=>setPanel(null)}><SocialPanel/></CenterPanel>}
   </main>
 }
 

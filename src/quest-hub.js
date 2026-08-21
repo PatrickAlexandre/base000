@@ -62,7 +62,9 @@ function completedToday(ctx){return ctx.state.completed?.[ctx.today]||{}}
 function questDone(ctx,id){return Boolean(completedToday(ctx)[id])}
 
 function dailyQuests(ctx){
-  const seed=`${ctx.today}|${ctx.classCode}|${ctx.plan}|${Math.floor((ctx.state.totalCompleted||0)/4)}`
+  const frozen=ctx.state.dailySets?.[ctx.today]
+  if(Array.isArray(frozen)&&frozen.length===4)return frozen
+  const seed=`${ctx.today}|${ctx.classCode}|${ctx.plan}`
   let main
   if(!ctx.moneyReady){main={key:'setup-money',icon:'💶',category:'QUÊTE PRINCIPALE · AUTONOMIE',title:'Donne une carte à ton argent',text:'Renseigne tes flux mensuels. Le but n’est pas d’optimiser chaque euro : commence par rendre la situation visible.',module:'Argent',cta:'Ouvrir Argent'}}
   else if(!ctx.caloriesReady){main={key:'setup-energy',icon:'🔥',category:'QUÊTE PRINCIPALE · ÉNERGIE',title:'Établis ton point de départ',text:'Renseigne taille, poids et activité afin d’obtenir une estimation énergétique de référence.',module:'Calories',cta:'Ouvrir Calories'}}
@@ -74,7 +76,13 @@ function dailyQuests(ctx){
   if(ctx.vip)pool=[...pool,{key:'formation',icon:'🎓',category:'Formation',title:'Apprends quelque chose d’utilisable',text:'Choisis une compétence pratique que tu pourrais employer cette semaine et approfondis-la.',module:'Formation',cta:'Ouvrir Formation'}]
   const ordered=[...pool].sort((a,b)=>hash(`${seed}|${a.key}`)-hash(`${seed}|${b.key}`))
   const secondaries=ordered.slice(0,3).map((q,index)=>({...q,id:`${ctx.today}:side:${index}:${q.key}`}))
-  return [main,...secondaries]
+  const quests=[main,...secondaries]
+  ctx.state.dailySets=ctx.state.dailySets||{}
+  ctx.state.dailySets[ctx.today]=quests
+  const oldDays=Object.keys(ctx.state.dailySets).sort().slice(0,-14)
+  oldDays.forEach(day=>delete ctx.state.dailySets[day])
+  writeState(ctx.state)
+  return quests
 }
 
 function trajectory(ctx){
@@ -95,7 +103,7 @@ function liveEntries(ctx){
 }
 
 function anomaly(ctx){
-  const signalHash=hash(`${ctx.today}|${ctx.classCode}|ARG|${ctx.state.totalCompleted||0}`)
+  const signalHash=hash(`${ctx.today}|${ctx.classCode}|${ctx.plan}|ARG`)
   if((ctx.state.totalCompleted||0)<3||signalHash%5>1)return ''
   const text=ARG_SIGNALS[signalHash%ARG_SIGNALS.length]
   return `<article class="quest-anomaly"><span>ANOMALIE // ${String(signalHash%33+1).padStart(2,'0')}</span><p>${escapeHtml(text)}</p></article>`

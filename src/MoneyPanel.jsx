@@ -40,14 +40,6 @@ export default function MoneyPanel(){
         <article><small>COUVERTURE D’URGENCE</small><strong>{results.months.toFixed(1)} mois</strong><p>Nombre de mois de charges essentielles couvertes.</p></article>
       </section>
     </div>
-    <div className="money-foundations"><h3>Les bases à maîtriser</h3><div className="money-foundation-grid">
-      <article><b>1 · Budget</b><p>Savoir ce qui entre, ce qui sort et distinguer fixe, variable et exceptionnel.</p></article>
-      <article><b>2 · Sécurité</b><p>Construire progressivement un fonds d’urgence adapté à ses dépenses essentielles.</p></article>
-      <article><b>3 · Dettes</b><p>Connaître taux, mensualités, coût total et prioriser les dettes les plus coûteuses.</p></article>
-      <article><b>4 · Administratif</b><p>Comprendre impôts, assurances, abonnements, contrats, factures et échéances.</p></article>
-      <article><b>5 · Épargne & projets</b><p>Donner un objectif et un horizon à l’argent mis de côté avant de chercher du rendement.</p></article>
-      <article><b>6 · Risque</b><p>Ne pas confondre rendement potentiel et certitude ; diversifier plutôt que tout concentrer.</p></article>
-    </div></div>
     <small className="money-note">Outil pédagogique général : il ne remplace pas un conseil financier, fiscal ou juridique personnalisé.</small>
   </div>
 }
